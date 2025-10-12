@@ -1,1 +1,3 @@
-./node_modules
+# Ignore node modules in repository root and in any subfolder
+node_modules/
+**/node_modules/
