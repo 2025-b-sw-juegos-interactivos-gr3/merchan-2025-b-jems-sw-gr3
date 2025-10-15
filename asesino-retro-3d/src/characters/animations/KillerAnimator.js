@@ -3,8 +3,9 @@
 const KillerAnimator = {
   _animationGroups: [],
   _currentAnimation: null,
-  _rootMesh: null, // Necesitamos una referencia al rootMesh para moverlo
-  _patrolInterval: null, // Para el intervalo del movimiento periódico
+  _rootMesh: null,
+  _patrolInterval: null,
+  _skeleton: null, // Referencia al esqueleto, aunque no se use directamente para animaciones GLTF
 
   /**
    * Inicializa el animador con las animaciones, esqueletos y la malla raíz del modelo.
@@ -15,10 +16,13 @@ const KillerAnimator = {
   init(rootMesh, animationGroups, skeleton = null) {
     this._rootMesh = rootMesh;
     this._animationGroups = animationGroups;
-    // Si hay animaciones del GLTF, detenemos todas al inicio
+    this._skeleton = skeleton; // Guardamos la referencia al esqueleto (útil para futuras expansiones)
+
+    // Si hay animaciones del GLTF, detenemos todas al inicio para tener control
     this._animationGroups.forEach(group => group.stop());
     console.log(`🎬 KillerAnimator inicializado con ${animationGroups.length} animaciones.`);
     animationGroups.forEach((group, index) => console.log(`   - [${index}] ${group.name}`));
+    // No reproducimos una animación por defecto aquí, se hará al iniciar el patrullaje.
   },
 
   /**
@@ -34,6 +38,7 @@ const KillerAnimator = {
       return null;
     }
 
+    // Detener la animación del grupo actual antes de iniciar una nueva
     if (this._currentAnimation) {
       this._currentAnimation.stop();
     }
@@ -46,7 +51,7 @@ const KillerAnimator = {
       console.log(`▶️ Reproduciendo animación: ${animationName}`);
       return anim;
     } else {
-      console.warn(`⚠️ Animación "${animationName}" no encontrada.`);
+      console.warn(`⚠️ Animación "${animationName}" no encontrada. No se pudo reproducir.`);
       return null;
     }
   },
@@ -78,8 +83,7 @@ const KillerAnimator = {
       return;
     }
 
-    // Limpiar cualquier intervalo anterior
-    this.stopPatrolX();
+    this.stopPatrolX(); // Limpiar cualquier intervalo anterior y detener animaciones
 
     let goingRight = true; // Estado para saber hacia dónde se mueve
 
@@ -89,6 +93,23 @@ const KillerAnimator = {
     const rightX = originalX + moveDistance / 2;
 
     const scene = this._rootMesh.getScene(); // Obtener la escena del mesh
+
+    // =====================================================================
+    // === NUEVO: Reproducir la animación del modelo GLTF al iniciar el patrullaje ===
+    // =====================================================================
+    if (this._animationGroups.length > 0) {
+      // Intenta encontrar una animación de "walk", si no, usa la primera disponible.
+      // **IMPORTANTE:** Reemplaza "walk" con una parte del nombre exacto de tu animación
+      // Si el nombre de tu animación es "mixamo.com", puedes usar: .includes("mixamo")
+      // Si es "Armature|Walk", puedes usar: .includes("walk")
+      // O simplemente usa el nombre exacto si lo conoces: const walkAnimationName = "tu_nombre_exacto";
+      const walkAnimationName = this._animationGroups.find(g => g.name.toLowerCase().includes("walk"))?.name || this._animationGroups[0].name;
+      this.playAnimation(walkAnimationName, true, 1.0); // Bucle, velocidad normal
+    } else {
+      console.warn("⚠️ No se encontraron AnimationGroups en el modelo del Killer. No se puede reproducir animación de caminar.");
+    }
+    // =====================================================================
+
 
     const animateKillerMovement = () => {
       const startPosition = this._rootMesh.position.clone();
@@ -128,24 +149,23 @@ const KillerAnimator = {
 
       // Asegurar la rotación más corta si cruza el límite de PI/-PI
       let currentRotationY = this._rootMesh.rotation.y;
-      // Ajustar targetRotationY si la diferencia es demasiado grande (ej: de -170 a 170)
       if (Math.abs(targetRotationY - currentRotationY) > Math.PI) {
         if (targetRotationY > currentRotationY) {
-          currentRotationY -= 2 * Math.PI; // Ir en sentido opuesto para acortar
+          currentRotationY -= 2 * Math.PI;
         } else {
-          targetRotationY += 2 * Math.PI; // Ir en sentido opuesto para acortar
+          targetRotationY += 2 * Math.PI;
         }
       }
 
       rotationAnimation.setKeys([
         { frame: 0, value: currentRotationY },
         { frame: 60 * animationDuration / 2, value: targetRotationY }, // Rotar más rápido a mitad de camino
-        { frame: 60 * animationDuration, value: targetRotationY } // Mantener rotación al final
+        { frame: 60 * animationDuration, value: targetRotationY }     // Mantener rotación al final
       ]);
       rotationAnimation.setEasingFunction(new BABYLON.SineEase());
 
 
-      // Detener animaciones anteriores y aplicarlas
+      // Detener animaciones de movimiento/rotación anteriores y aplicarlas
       scene.stopAnimation(this._rootMesh, "killerPosAnim");
       scene.stopAnimation(this._rootMesh, "killerRotAnim");
       scene.beginDirectAnimation(this._rootMesh, [positionAnimation, rotationAnimation], 0, 60 * animationDuration, false);
@@ -166,6 +186,7 @@ const KillerAnimator = {
     if (this._patrolInterval) {
       clearInterval(this._patrolInterval);
       this._patrolInterval = null;
+      this.stopAnimation(); // Detener también la animación del modelo GLTF
       console.log("⏹️ Patrullaje X detenido.");
     }
   },
@@ -177,6 +198,7 @@ const KillerAnimator = {
     if (this._patrolInterval) {
       clearInterval(this._patrolInterval);
       this._patrolInterval = null;
+      this.stopAnimation(); // Pausar la animación del modelo GLTF
       console.log("⏸️ Patrullaje X pausado debido a pestaña oculta.");
     }
   },

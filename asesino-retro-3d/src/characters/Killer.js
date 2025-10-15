@@ -18,7 +18,7 @@ const Killer = {
       // Carga el modelo de forma asíncrona
       const result = await BABYLON.SceneLoader.ImportMeshAsync(
         "",                      // Importar todas las mallas
-        "assets/models/",        // Ruta a la carpeta
+        "assets/models/killer/",        // Ruta a la carpeta
         "killer.gltf",           // Nombre del archivo
         scene
       );
@@ -32,7 +32,7 @@ const Killer = {
       // --- Posición, Rotación y Escala Fijas ---
       rootMesh.position = new BABYLON.Vector3(0, 0, 1.1);
       rootMesh.rotation.y = -Math.PI / 3;
-      rootMesh.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01);
+      rootMesh.scaling = new BABYLON.Vector3(0.03, 0.03, 0.03);
 
       // Aplicar sombras a todas las partes del modelo
       result.meshes.forEach(mesh => {
