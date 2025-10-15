@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escena del Crimen Retro</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        
+        /* Overlay de carga (puedes quitarlo si no lo usas activamente) */
+        /* Lo comento por ahora, ya que no tienes un div #loading en tu HTML actual */
+        /*
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            text-align: center;
+            z-index: 1000;
+        }
+        */
+        
+        #error {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            display: none;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="error"></div>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    
+    <script>
+        window.addEventListener('load', function() {
+            // const loadingDiv = document.getElementById('loading'); // No hay div con id 'loading'
+            const errorDiv = document.getElementById('error');
+            
+            if (typeof BABYLON === 'undefined') {
+                errorDiv.style.display = 'block';
+                errorDiv.innerHTML = '❌ Error: Babylon.js no se cargó.<br>Verifica tu conexión a internet.';
+                // Si quieres que el canvas se oculte si Babylon.js no carga:
+                document.getElementById('renderCanvas').style.display = 'none';
+            } else {
+                console.log('✅ Babylon.js versión:', BABYLON.Engine.Version);
+            }
+        });
+    </script>
+    
+    <script type="module" src="src/main.js"></script>
+    </body>
+</html>

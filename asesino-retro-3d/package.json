@@ -1,0 +1,14 @@
+{
+  "name": "asesino-retro-3d",
+  "version": "1.0.0",
+  "description": "Una escena retro con Babylon.js",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "live-server --port=5500"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
