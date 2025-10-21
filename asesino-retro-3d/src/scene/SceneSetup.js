@@ -7,7 +7,7 @@ const SceneSetup = {
    * Inicializa la configuración base de la escena
    * @param {BABYLON.Scene} scene - La escena de Babylon.js
    * @param {HTMLCanvasElement} canvas - El canvas HTML
-   * @returns {Object} Objeto con cámara, luces y generador de sombras
+   * @returns {Object} Objeto con luces y generador de sombras
    */
   initialize(scene, canvas) {
     console.log("🎬 Configurando escena base...");
@@ -16,7 +16,9 @@ const SceneSetup = {
     scene.clearColor = new BABYLON.Color3(0.05, 0.05, 0.08);
 
     // Configurar cámara
-    const camera = this._setupCamera(scene, canvas);
+    // --- LA CÁMARA SE ELIMINÓ DE AQUÍ ---
+    // Se creará en main.js como una FollowCamera
+    // const camera = this._setupCamera(scene, canvas);
 
     // Configurar iluminación
     const lights = this._setupLights(scene);
@@ -30,15 +32,17 @@ const SceneSetup = {
     console.log("✅ Escena base configurada");
 
     return {
-      camera,
+      // camera, // <-- Eliminado del return
       lights,
       shadowGenerator
     };
   },
 
   /**
-   * Configura la cámara principal
+   * ESTA FUNCIÓN YA NO SE USA, PERO SE DEJA POR REFERENCIA
+   * (main.js ahora crea una FollowCamera)
    */
+  /*
   _setupCamera(scene, canvas) {
     const camera = new BABYLON.FreeCamera(
       "mainCamera",
@@ -57,6 +61,7 @@ const SceneSetup = {
 
     return camera;
   },
+  */
 
   /**
    * Configura todas las luces de la escena
@@ -72,8 +77,11 @@ const SceneSetup = {
     hemispheric.diffuse = new BABYLON.Color3(0.6, 0.6, 0.7);
 
     // Luz puntual principal
+    // NOTA: Cambié el nombre a "mainPointLight" para que coincida
+    // con el código de KillerAnimator.js (que busca "mainSpotlight")
+    // Considera unificar nombres. Voy a usar "mainPointLight"
     const mainPoint = new BABYLON.PointLight(
-      "mainPointLight",
+      "mainPointLight", // <-- Nombre importante
       new BABYLON.Vector3(0, 3, 0),
       scene
     );

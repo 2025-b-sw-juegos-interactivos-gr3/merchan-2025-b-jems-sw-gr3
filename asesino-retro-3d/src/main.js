@@ -11,7 +11,8 @@ import Room from './environment/Room.js';
 import Furniture from './environment/Furniture.js';
 import Decorations from './props/Decorations.js';
 import Tools from './props/Tools.js';
-import KillerAnimator from './characters/animations/KillerAnimator.js'; // ¡Importamos el animador!
+import KillerAnimator from './characters/animations/KillerAnimator.js';
+import FollowCamera from './controls/FollowCamera.js';
 
 
 // Esperar a que Babylon.js esté completamente cargado
@@ -46,8 +47,16 @@ function initApp() {
 
   const createScene = async function () {
     const scene = new BABYLON.Scene(engine);
+
+    // ================================================================
+    // ¡IMPORTANTE! Edita tu archivo 'SceneSetup.js'
+    // Haz que 'initialize' NO cree una cámara.
+    // Debería devolver solo { lights, shadowGenerator }
+    // ================================================================
     const sceneConfig = SceneSetup.initialize(scene, canvas);
-    const { camera, lights, shadowGenerator } = sceneConfig;
+    const { lights, shadowGenerator } = sceneConfig;
+    // const camera = sceneConfig.camera; // <-- Ya no queremos esta cámara
+
     const materials = Materials.createAll(scene);
 
     Room.create(scene, materials, shadowGenerator);
@@ -57,25 +66,44 @@ function initApp() {
 
     await Victim.create(scene, materials, shadowGenerator);
 
-    // Cargar el asesino
-    const killerData = await Killer.load(scene, shadowGenerator); // Devuelve un objeto con rootMesh, etc.
+    // Cargar el asesino (modelo 'stopped' por defecto)
+    const killerData = await Killer.load(scene, shadowGenerator);
 
     // ================================================================
-    // Inicializar KillerAnimator aquí
+    // Crear la nueva cámara y el animador
     // ================================================================
+    let camera = null;
+
     if (killerData && killerData.rootMesh) {
-      KillerAnimator.init(killerData.rootMesh, killerData.animationGroups, killerData.skeletons[0]);
+
+      const cameraTarget = new BABYLON.TransformNode("cameraTarget", scene);
+
+      // 2. Hacemos que este objeto sea "hijo" del personaje.
+      // Así, se moverá a donde vaya el personaje.
+      cameraTarget.parent = killerData.rootMesh;
+
+      // 3. Subimos la posición LOCAL de este objeto invisible en el eje Y.
+      // ¡El modelo del personaje (killerData.rootMesh) no se mueve!
+      cameraTarget.position.y = 1.2; // Ajusta esta altura (ej. 1.2 es el pecho)
+
+      // 1. Crear la cámara que sigue al asesino
+      camera = FollowCamera.create(scene, cameraTarget, canvas);
+
+      // 2. Inicializar el controlador del personaje
+      KillerAnimator.init(scene, camera, killerData.rootMesh);
     } else {
-      console.error("❌ No se pudo inicializar KillerAnimator: Killer.load() devolvió datos incompletos.");
+      console.error("❌ No se pudo cargar el Killer, no se puede crear cámara ni animador.");
+      // Crear una cámara de respaldo si falla
+      camera = new BABYLON.FreeCamera("fallbackCam", new BABYLON.Vector3(0, 1.5, -5), scene);
+      camera.attachControl(canvas, true);
     }
 
     console.log("✅ Escena completa cargada exitosamente!");
 
     return {
       scene,
-      camera,
+      camera, // Devolver la nueva cámara
       lights,
-      killerRootMesh: killerData ? killerData.rootMesh : null, // Devolvemos solo el rootMesh para la escena
       shadowGenerator
     };
   };
@@ -84,46 +112,46 @@ function initApp() {
 
   createScene().then(data => {
     sceneData = data;
-    const { scene, killerRootMesh } = data; // killerRootMesh ahora viene de los datos devueltos
+    const { scene } = data;
 
     engine.runRenderLoop(() => {
+      // Obtener el tiempo delta (en segundos)
+      const deltaTime = engine.getDeltaTime() / 1000.0;
+
+      // Actualizar la lógica del personaje en cada frame
+      KillerAnimator.update(deltaTime);
+
+      // Renderizar la escena
       scene.render();
     });
 
     console.log("🎮 Motor iniciado correctamente");
 
     // ================================================================
-    // Iniciar el movimiento del Killer a través de KillerAnimator
+    // BORRAR EL CÓDIGO DE PATRULLAJE
     // ================================================================
-    if (killerRootMesh) {
-      // Los parámetros: distancia total (2), duración de cada segmento (1s), tiempo de ciclo total (2s),
-      // offset inicial en X (0), Y (0), Z (1.1)
-      // Coinciden con los valores predeterminados en KillerAnimator.startPatrolX()
-      KillerAnimator.startPatrolX(2, 1, 2, 0, 0, 1.1);
-    }
+    // if (killerRootMesh) { ... } // <-- ¡BORRA ESTE BLOQUE!
+    // KillerAnimator.startPatrolX(...); // <-- ¡BORRA ESTA LÍNEA!
 
   }).catch(error => {
-    console.error("❌ Error al crear la escena:", error);
-    console.error("Stack:", error.stack);
+    // ... (código de catch) ...
   });
 
-  // Manejar redimensionamiento
-  window.addEventListener("resize", () => {
-    engine.resize();
-  });
+  // ... (código de 'resize') ...
 
   // Manejar visibilidad de la pestaña (optimización)
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       engine.stopRenderLoop();
-      // Pausar el movimiento del killer cuando la pestaña no está visible
-      KillerAnimator.pausePatrolOnHidden();
+      // Pausar la entrada para que no se quede "caminando"
+      KillerAnimator.pauseAllInput();
     } else if (sceneData) {
       engine.runRenderLoop(() => {
+        // Recalcular deltaTime (importante después de una pausa)
+        const deltaTime = engine.getDeltaTime() / 1000.0;
+        KillerAnimator.update(deltaTime);
         sceneData.scene.render();
       });
-      // Reanudar el movimiento del killer cuando la pestaña vuelve a ser visible
-      KillerAnimator.resumePatrolOnVisible();
     }
   });
 

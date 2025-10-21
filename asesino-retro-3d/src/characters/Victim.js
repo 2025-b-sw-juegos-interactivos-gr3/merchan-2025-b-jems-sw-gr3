@@ -18,8 +18,8 @@ const Victim = {
       // Carga el modelo GLTF de forma asíncrona
       const result = await BABYLON.SceneLoader.ImportMeshAsync(
         "", // Importar todas las mallas del archivo
-        "assets/models/", // Ruta a la carpeta de modelos
-        "victim.gltf", // Nombre del archivo
+        "assets/models/victim/", // Ruta a la carpeta de modelos
+        "victim.glb", // Nombre del archivo
         scene
       );
 
@@ -29,13 +29,13 @@ const Victim = {
 
       // --- Posicionamiento, Rotación y Escala ---
       // Posición para que esté sobre la mesa principal
-      victimRoot.position = new BABYLON.Vector3(1, 1.1, 0);
+      victimRoot.position = new BABYLON.Vector3(-0.2, -0.4, 0);
+      victimRoot.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
 
       // Rotación para que esté recostado sobre su espalda
-      victimRoot.rotation = new BABYLON.Vector3(-Math.PI / 2, 0, Math.PI / 2);
 
       // Escala solicitada
-      victimRoot.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01);
+      victimRoot.scaling = new BABYLON.Vector3(1.1, 1.1, 1.1);
 
       // Aplicar sombras a todas las mallas cargadas del modelo
       result.meshes.forEach(mesh => {
