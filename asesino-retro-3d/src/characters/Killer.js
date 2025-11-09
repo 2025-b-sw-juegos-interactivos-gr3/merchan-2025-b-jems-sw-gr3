@@ -30,7 +30,7 @@ const Killer = {
       rootMesh.name = "killer_root_stopped";
 
       // --- Posición, Rotación y Escala Fijas ---
-      rootMesh.position = new BABYLON.Vector3(0, 0, 0); // Empezar en el centro
+      rootMesh.position = new BABYLON.Vector3(0, 0, 3); // Empezar en el centro
       rootMesh.rotation.y = 0; // <-- CAMBIO AQUÍ (antes Math.PI). 0 es la rotación por defecto de GLTF.
       rootMesh.scaling = new BABYLON.Vector3(1, 1, 1);
 

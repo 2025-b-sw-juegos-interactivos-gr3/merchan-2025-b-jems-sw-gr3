@@ -11,6 +11,7 @@ const KillerAnimator = {
   _isMoving: false,
   _moveSpeed: 1.0, // ¡Variable de velocidad!
   _lerpSpeed: 10.0, // Velocidad de suavizado de la rotación
+  _isWalkingModelLoaded: false, // Nuevo flag para saber si el modelo está listo
 
   /**
    * Inicializa el controlador del personaje.
@@ -40,6 +41,8 @@ const KillerAnimator = {
     // === FIN DE LA CORRECCIÓN ===
     // =================================================================
 
+    // --- NO USAR COLISIONES DE BABYLON (causan congelamiento) ---
+    // En su lugar, usaremos verificación manual de límites en update()
 
     // Cargar el modelo de caminar
     this._loadWalkingModel();
@@ -91,6 +94,9 @@ const KillerAnimator = {
 
       console.log("✅ Modelo 'walking' cargado y emparentado.");
 
+      // Marcar que el modelo está cargado
+      this._isWalkingModelLoaded = true;
+
     } catch (error) {
       console.error("❌ Error al cargar el modelo del asesino (walking):", error);
     }
@@ -134,6 +140,12 @@ const KillerAnimator = {
    * Cambia al estado de "Caminar".
    */
   _startWalking() {
+    // Verificar que el modelo de caminar esté cargado
+    if (!this._isWalkingModelLoaded) {
+      console.warn("⚠️ Modelo de caminar aún no está cargado, esperando...");
+      return;
+    }
+
     if (!this._walkingMesh || !this._stoppedMesh) return;
 
     this._isMoving = true;
@@ -143,6 +155,8 @@ const KillerAnimator = {
     if (this._walkingAnimGroup) {
       this._walkingAnimGroup.start(true);
     }
+
+    console.log("🏃 Iniciando animación de caminar");
   },
 
   /**
@@ -165,7 +179,12 @@ const KillerAnimator = {
    * @param {number} deltaTime - Tiempo (en segundos) desde el último frame.
    */
   update(deltaTime) {
-    if (!this._isMoving || !this._characterRoot || !this._walkingMesh) {
+    // Retornar si no está en movimiento o si falta algún componente
+    if (!this._characterRoot) {
+      return;
+    }
+
+    if (!this._isMoving || !this._isWalkingModelLoaded || !this._walkingMesh) {
       return;
     }
 
@@ -201,10 +220,55 @@ const KillerAnimator = {
 
     moveDirection.normalize();
 
-    // 3. Aplicar movimiento (Posición) al NODO PADRE
+    // 3. Aplicar movimiento con verificación de colisiones manual
     const moveDistance = this._moveSpeed * deltaTime;
-    this._characterRoot.position.addInPlace(moveDirection.scale(moveDistance));
+    const displacement = moveDirection.scale(moveDistance);
 
+    // Guardar la posición anterior por si hay que revertir
+    const oldPosition = this._characterRoot.position.clone();
+
+    // Aplicar el movimiento
+    this._characterRoot.position.addInPlace(displacement);
+
+    // Verificar colisión con las paredes de la habitación
+    const pos = this._characterRoot.position;
+    const margin = 0.5; // Margen de colisión
+    const roomLimit = 4.7; // Límite del cuarto reducido (5.0 - 0.3 de margen)
+
+    // Verificar colisión con paredes
+    let hasCollision = false;
+    if (pos.x < -roomLimit || pos.x > roomLimit || pos.z < -roomLimit || pos.z > roomLimit) {
+      hasCollision = true;
+    }
+
+    // Verificar colisión con la mesa principal (donde está el cadáver)
+    // Mesa en posición (0, 0.8, 0) con width=3, depth=1.5
+    const tableMargin = 0.5;
+    const tableHalfWidth = 1.5 + tableMargin;  // 3/2 + margen
+    const tableHalfDepth = 0.75 + tableMargin; // 1.5/2 + margen
+
+    if (pos.x > -tableHalfWidth && pos.x < tableHalfWidth &&
+      pos.z > -tableHalfDepth && pos.z < tableHalfDepth) {
+      hasCollision = true;
+    }
+
+    // Verificar colisión con el horno
+    // Horno en posición (-3.5, 0.7, -3) con width=1.2, depth=0.8
+    const ovenMargin = 0.5;
+    const ovenCenterX = -3.5;
+    const ovenCenterZ = -3.0;
+    const ovenHalfWidth = 0.6 + ovenMargin;  // 1.2/2 + margen
+    const ovenHalfDepth = 0.4 + ovenMargin;  // 0.8/2 + margen
+
+    if (pos.x > ovenCenterX - ovenHalfWidth && pos.x < ovenCenterX + ovenHalfWidth &&
+      pos.z > ovenCenterZ - ovenHalfDepth && pos.z < ovenCenterZ + ovenHalfDepth) {
+      hasCollision = true;
+    }
+
+    // Si hay colisión, revertir a la posición anterior
+    if (hasCollision) {
+      this._characterRoot.position.copyFrom(oldPosition);
+    }
 
     // 4. Aplicar rotación (hacer que el personaje mire hacia donde se mueve)
     // Tu lógica de 'atan2' con negativos (que está BIEN para tu caso)

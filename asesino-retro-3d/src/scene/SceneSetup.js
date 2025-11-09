@@ -15,6 +15,9 @@ const SceneSetup = {
     // Color de fondo oscuro y lúgubre
     scene.clearColor = new BABYLON.Color3(0.05, 0.05, 0.08);
 
+    // NO habilitar sistema de colisiones de Babylon (causa congelamiento)
+    // Usaremos verificación manual de límites en su lugar
+
     // Configurar cámara
     // --- LA CÁMARA SE ELIMINÓ DE AQUÍ ---
     // Se creará en main.js como una FollowCamera
@@ -67,45 +70,42 @@ const SceneSetup = {
    * Configura todas las luces de la escena
    */
   _setupLights(scene) {
-    // Luz hemisférica (luz ambiental suave)
+    // Luz hemisférica (luz ambiental suave) - MÁS OSCURA
     const hemispheric = new BABYLON.HemisphericLight(
       "hemiLight",
       new BABYLON.Vector3(0, 1, 0),
       scene
     );
-    hemispheric.intensity = 0.28;
-    hemispheric.diffuse = new BABYLON.Color3(0.6, 0.6, 0.7);
+    hemispheric.intensity = 0.15; // Reducida de 0.28
+    hemispheric.diffuse = new BABYLON.Color3(0.4, 0.4, 0.5);
 
-    // Luz puntual principal
-    // NOTA: Cambié el nombre a "mainPointLight" para que coincida
-    // con el código de KillerAnimator.js (que busca "mainSpotlight")
-    // Considera unificar nombres. Voy a usar "mainPointLight"
+    // Luz puntual principal - MÁS TENUE
     const mainPoint = new BABYLON.PointLight(
-      "mainPointLight", // <-- Nombre importante
+      "mainPointLight",
       new BABYLON.Vector3(0, 3, 0),
       scene
     );
-    mainPoint.intensity = 0.8;
-    mainPoint.diffuse = new BABYLON.Color3(1, 0.95, 0.85);
+    mainPoint.intensity = 0.5; // Reducida de 0.8
+    mainPoint.diffuse = new BABYLON.Color3(0.9, 0.85, 0.75);
 
-    // Luz roja ambiental (atmósfera)
+    // Luz roja ambiental (atmósfera) - MÁS INTENSA para compensar
     const redAmbient = new BABYLON.PointLight(
       "redLight",
       new BABYLON.Vector3(2, 1.5, 2),
       scene
     );
-    redAmbient.intensity = 0.42;
-    redAmbient.diffuse = new BABYLON.Color3(0.8, 0.2, 0.2);
+    redAmbient.intensity = 0.35; // Reducida de 0.42
+    redAmbient.diffuse = new BABYLON.Color3(0.9, 0.15, 0.15);
     redAmbient.range = 6;
 
-    // Luz direccional para sombras
+    // Luz direccional para sombras - MÁS SUAVE
     const directional = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.3, -1, 0.2),
       scene
     );
     directional.position = new BABYLON.Vector3(5, 10, -5);
-    directional.intensity = 0.45;
+    directional.intensity = 0.3; // Reducida de 0.45
 
     return {
       hemispheric,
