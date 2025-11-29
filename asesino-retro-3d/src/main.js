@@ -59,10 +59,27 @@ function initApp() {
 
     const materials = Materials.createAll(scene);
 
+    // Materiales adicionales para el paquete y la zona
+    const matPaquete = new BABYLON.StandardMaterial("matPaquete", scene);
+    matPaquete.diffuseColor = new BABYLON.Color3(1, 0, 0); // Rojo
+    const matZona = new BABYLON.StandardMaterial("matZona", scene);
+    matZona.diffuseColor = new BABYLON.Color3(0, 1, 0); // Verde
+    matZona.alpha = 0.5; // Semitransparente
+
     Room.create(scene, materials, shadowGenerator);
     Furniture.create(scene, materials, shadowGenerator);
     Decorations.create(scene, materials, shadowGenerator, lights);
     Tools.create(scene, materials, shadowGenerator);
+
+    // Crear el paquete y la zona de entrega
+    const paquete = BABYLON.MeshBuilder.CreateBox("paquete", { size: 0.5 }, scene);
+    paquete.material = matPaquete;
+    paquete.position = new BABYLON.Vector3(5, 0.25, 5);
+    shadowGenerator.addShadowCaster(paquete);
+
+    const zonaEntrega = BABYLON.MeshBuilder.CreateGround("zonaEntrega", { width: 3, height: 3 }, scene);
+    zonaEntrega.material = matZona;
+    zonaEntrega.position = new BABYLON.Vector3(-5, 0.01, -5);
 
     await Victim.create(scene, materials, shadowGenerator);
 
@@ -90,7 +107,7 @@ function initApp() {
       camera = FollowCamera.create(scene, cameraTarget, canvas);
 
       // 2. Inicializar el controlador del personaje
-      KillerAnimator.init(scene, camera, killerData.rootMesh);
+      KillerAnimator.init(scene, camera, killerData.rootMesh, paquete, zonaEntrega);
     } else {
       console.error("❌ No se pudo cargar el Killer, no se puede crear cámara ni animador.");
       // Crear una cámara de respaldo si falla

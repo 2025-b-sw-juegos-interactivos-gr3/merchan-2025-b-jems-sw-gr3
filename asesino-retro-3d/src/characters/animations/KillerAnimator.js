@@ -12,17 +12,24 @@ const KillerAnimator = {
   _moveSpeed: 1.0, // ¡Variable de velocidad!
   _lerpSpeed: 10.0, // Velocidad de suavizado de la rotación
   _isWalkingModelLoaded: false, // Nuevo flag para saber si el modelo está listo
+  _paquete: null,
+  _zonaEntrega: null,
+  _paqueteEnMano: false,
 
   /**
    * Inicializa el controlador del personaje.
    * @param {BABYLON.Scene} scene - La escena principal.
    * @param {BABYLON.ArcRotateCamera} camera - La cámara que sigue al jugador.
    * @param {BABYLON.TransformNode} stoppedMesh - La malla "idle" ya cargada.
+   * @param {BABYLON.Mesh} paquete - El paquete a recoger.
+   * @param {BABYLON.Mesh} zonaEntrega - La zona de entrega.
    */
-  init(scene, camera, stoppedMesh) {
+  init(scene, camera, stoppedMesh, paquete, zonaEntrega) {
     this._scene = scene;
     this._camera = camera;
     this._stoppedMesh = stoppedMesh;
+    this._paquete = paquete;
+    this._zonaEntrega = zonaEntrega;
 
     // --- LÓGICA DE NODO RAÍZ ---
     this._characterRoot = new BABYLON.TransformNode("characterRoot", scene);
@@ -103,7 +110,7 @@ const KillerAnimator = {
   },
 
   /**
-   * Configura los eventos de teclado para WASD.
+   * Configura los eventos de teclado para WASD y espacio.
    */
   _setupInputListeners() {
     window.addEventListener("keydown", (event) => {
@@ -111,6 +118,8 @@ const KillerAnimator = {
       if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
         this._inputMap[key] = true;
         this._updateMovementState();
+      } else if (key === ' ') {
+        this._handlePickup();
       }
     });
 
@@ -121,6 +130,32 @@ const KillerAnimator = {
         this._updateMovementState();
       }
     });
+  },
+
+  /**
+   * Maneja la lógica de recoger o dejar el paquete al presionar espacio.
+   */
+  _handlePickup() {
+    if (!this._paqueteEnMano) {
+      // Lógica para RECOGER
+      let dist = BABYLON.Vector3.Distance(this._characterRoot.position, this._paquete.position);
+      if (dist < 2) { // Si está suficientemente cerca
+        console.log("¡Paquete recogido!");
+        this._paquete.parent = this._characterRoot; // El paquete ahora es hijo del personaje
+        this._paquete.position = new BABYLON.Vector3(0, 1.2, 0.5); // Posición relativa al personaje (delante y arriba)
+        this._paqueteEnMano = true;
+      }
+    } else {
+      // Lógica para DEJAR
+      let dist = BABYLON.Vector3.Distance(this._characterRoot.position, this._zonaEntrega.position);
+      if (dist < 2) { // Si está suficientemente cerca de la zona
+        console.log("¡Paquete entregado!");
+        this._paquete.parent = null; // El paquete ya no tiene padre
+        this._paquete.position = this._zonaEntrega.position.clone(); // Dejarlo en la zona
+        this._paquete.position.y = 0.25; // Ponerlo sobre la zona
+        this._paqueteEnMano = false;
+      }
+    }
   },
 
   /**

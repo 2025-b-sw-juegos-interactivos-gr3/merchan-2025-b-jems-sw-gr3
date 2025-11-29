@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js - Ejemplo de Recoger y Dejar</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        // Variable de estado para saber si tenemos el paquete
+        let paqueteEnMano = false;
+        let estaMoviendo = false;
+
+        // Mapa para rastrear las teclas presionadas
+        let inputMap = {};
+
+        // Modelos del jugador
+        let modeloActual = null;
+        let modelos = {
+            stopped: null,           // farmer_stopped.glb
+            stoppedCarrying: null,   // farmer_stopped-carrying.glb
+            walking: null,           // farmer_walking.glb
+            walkingCarrying: null    // farmer_walking-carrying.glb
+        };
+
+        // Contenedor del jugador (para posición y rotación)
+        let jugador = null;
+
+        const createScene = async function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.collisionsEnabled = true;
+            scene.clearColor = new BABYLON.Color3(0.5, 0.8, 1.0); // Celeste
+
+            // --- Cámara y Luz ---
+            const camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+
+            const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Agregar GlowLayer para el resplandor de la calabaza
+            const glowLayer = new BABYLON.GlowLayer("glow", scene);
+            glowLayer.intensity = 2.0;
+            glowLayer.customEmissiveColorSelector = function(mesh, subMesh, material, result) {
+                if (mesh.name === "paquete") {
+                    result.set(1, 1, 0, 1); // Amarillo brillante
+                } else {
+                    result.set(0, 0, 0, 0); // Sin glow para otros
+                }
+            };
+
+            // --- Materiales (Colores) ---
+            const matPaquete = new BABYLON.StandardMaterial("matPaquete", scene);
+            matPaquete.diffuseColor = new BABYLON.Color3(1, 0, 0); // Rojo
+
+            const matZona = new BABYLON.StandardMaterial("matZona", scene);
+            matZona.diffuseColor = new BABYLON.Color3(0, 1, 0); // Verde
+            matZona.alpha = 0.5; // Semitransparente
+
+            const matSuelo = new BABYLON.StandardMaterial("matSuelo", scene);
+            matSuelo.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Gris
+
+            // --- Objetos ---
+            // Cargar el modelo del suelo (low_poly_farm.glb)
+            let suelo;
+            try {
+                const resultFarm = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "low_poly_farm.glb", scene);
+                suelo = resultFarm.meshes[0];
+                suelo.name = "suelo";
+                suelo.position = new BABYLON.Vector3(-2, 0, 0);
+                suelo.scaling = new BABYLON.Vector3(0.2, 0.2, 0.2);
+                suelo.rotation = new BABYLON.Vector3(0, 0, 0);
+            } catch (error) {
+                console.error("Error cargando low_poly_farm.glb:", error);
+            }
+
+            // Crear contenedor invisible para el jugador
+            jugador = BABYLON.MeshBuilder.CreateBox("jugador", { size: 0.01 }, scene);
+            jugador.visibility = 0; // Invisible
+            jugador.position.y = 0;
+
+            // Cargar el modelo de la calabaza (pumpking.glb) en vez de una caja
+            let paquete;
+            try {
+                const resultPumpking = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "pumpkin.glb", scene);
+                paquete = resultPumpking.meshes[0];
+                paquete.name = "paquete";
+                paquete.position = new BABYLON.Vector3(3, 0.3, 1);
+                paquete.scaling = new BABYLON.Vector3(0.005, 0.005, 0.005);
+                glowLayer.addIncludedOnlyMesh(paquete);
+            } catch (error) {
+                console.error("Error cargando pumpking.glb:", error);
+            }
+
+            // Cargar el modelo de la zona de entrega (old_cart.glb)
+            let zonaEntrega;
+            try {
+                const resultCart = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "old_cart.glb", scene);
+                zonaEntrega = resultCart.meshes[0];
+                zonaEntrega.name = "zonaEntrega";
+                zonaEntrega.position = new BABYLON.Vector3(-5, 0.01, -5);
+                zonaEntrega.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01);
+            } catch (error) {
+                console.error("Error cargando old_cart.glb:", error);
+            }
+
+            // --- Cargar Modelos GLB ---
+            console.log("Cargando modelos...");
+            
+            try {
+                // Cargar farmer_stopped.glb
+                const resultStopped = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "farmer_stopped.glb", scene);
+                modelos.stopped = resultStopped.meshes[0];
+                modelos.stopped.parent = jugador;
+                modelos.stopped.setEnabled(false);
+
+                // Cargar farmer_stopped-carrying.glb
+                const resultStoppedCarrying = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "farmer_stopped-carrying.glb", scene);
+                modelos.stoppedCarrying = resultStoppedCarrying.meshes[0];
+                modelos.stoppedCarrying.parent = jugador;
+                modelos.stoppedCarrying.setEnabled(false);
+
+                // Cargar farmer_walking.glb
+                const resultWalking = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "farmer_walking.glb", scene);
+                modelos.walking = resultWalking.meshes[0];
+                modelos.walking.parent = jugador;
+                modelos.walking.setEnabled(false);
+
+                // Cargar farmer_walking-carrying.glb
+                const resultWalkingCarrying = await BABYLON.SceneLoader.ImportMeshAsync("", "./assets/models/", "farmer_walking-carrying.glb", scene);
+                modelos.walkingCarrying = resultWalkingCarrying.meshes[0];
+                modelos.walkingCarrying.parent = jugador;
+                modelos.walkingCarrying.setEnabled(false);
+
+                // Activar el modelo inicial (parado sin nada)
+                cambiarModelo('stopped');
+
+                console.log("Modelos cargados!");
+            } catch (error) {
+                console.error("Error cargando modelos:", error);
+            }
+
+            // --- Lógica de Input ---
+            scene.actionManager = new BABYLON.ActionManager(scene);
+
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key.toLowerCase()] = true;
+            }));
+
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key.toLowerCase()] = false;
+            }));
+
+            // --- Lógica de Recoger / Dejar (Al presionar Espacio) ---
+            scene.onKeyboardObservable.add((kbInfo) => {
+                if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
+                    if (kbInfo.event.key === " ") { // Barra espaciadora
+                        // 1. Lógica para RECOGER
+                        if (!paqueteEnMano) {
+                            let dist = BABYLON.Vector3.Distance(jugador.position, paquete.position);
+                            if (dist < 2) {
+                                console.log("¡Paquete recogido!");
+                                paquete.parent = jugador;
+                                paquete.position = new BABYLON.Vector3(0, 1.2, 0.4);
+                                paqueteEnMano = true;
+                                actualizarModelo();
+                            }
+                        }
+                        // 2. Lógica para DEJAR
+                        else {
+                            let dist = BABYLON.Vector3.Distance(jugador.position, zonaEntrega.position);
+                            if (dist < 2) {
+                                console.log("¡Paquete entregado!");
+                                paquete.parent = null;
+                                paquete.position = zonaEntrega.position.clone();
+                                paquete.position.y = 1;
+                                paqueteEnMano = false;
+                                actualizarModelo();
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- Game Loop (Movimiento del jugador) ---
+            const velocidad = 0.08;
+
+            scene.onBeforeRenderObservable.add(() => {
+                let moviendo = false;
+                let direccion = new BABYLON.Vector3(0, 0, 0);
+
+                if (inputMap["w"]) {
+                    jugador.position.z += velocidad;
+                    direccion.z += 1;
+                    moviendo = true;
+                }
+                if (inputMap["s"]) {
+                    jugador.position.z -= velocidad;
+                    direccion.z -= 1;
+                    moviendo = true;
+                }
+                if (inputMap["a"]) {
+                    jugador.position.x -= velocidad;
+                    direccion.x -= 1;
+                    moviendo = true;
+                }
+                if (inputMap["d"]) {
+                    jugador.position.x += velocidad;
+                    direccion.x += 1;
+                    moviendo = true;
+                }
+
+                // Actualizar rotación si se está moviendo
+                if (moviendo && direccion.length() > 0) {
+                    // Calcular el ángulo de rotación en Y basado en la dirección
+                    let angulo = Math.atan2(direccion.x, direccion.z);
+                    jugador.rotation.y = angulo;
+                }
+
+                // Actualizar estado de movimiento
+                if (estaMoviendo !== moviendo) {
+                    estaMoviendo = moviendo;
+                    actualizarModelo();
+                }
+            });
+
+            return scene;
+        };
+
+        // Función para cambiar entre modelos
+        function cambiarModelo(nuevoModelo) {
+            if (modeloActual) {
+                modeloActual.setEnabled(false);
+            }
+            modeloActual = modelos[nuevoModelo];
+            if (modeloActual) {
+                modeloActual.setEnabled(true);
+            }
+        }
+
+        // Función para actualizar el modelo según el estado
+        function actualizarModelo() {
+            if (estaMoviendo && paqueteEnMano) {
+                cambiarModelo('walkingCarrying');
+            } else if (estaMoviendo && !paqueteEnMano) {
+                cambiarModelo('walking');
+            } else if (!estaMoviendo && paqueteEnMano) {
+                cambiarModelo('stoppedCarrying');
+            } else {
+                cambiarModelo('stopped');
+            }
+        }
+
+        // Iniciar la escena
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                scene.render();
+            });
+
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>
